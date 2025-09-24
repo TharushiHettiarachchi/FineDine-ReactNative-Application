@@ -22,7 +22,9 @@ export default function ViewOrders() {
 
           const userRef = doc(db, 'user', order.userId);
           const userDoc = await getDoc(userRef);
-          const userName = userDoc.exists() ? `${userDoc.data().firstName} ${userDoc.data().lastName}` : 'Unknown';
+          const userName = userDoc.exists()
+            ? `${userDoc.data().firstName} ${userDoc.data().lastName}`
+            : 'Unknown';
 
           const items = await Promise.all(
             order.items.map(async (item) => {
@@ -41,14 +43,24 @@ export default function ViewOrders() {
           return {
             id: docSnap.id,
             userName,
+            tableNumber: order.tableNumber || 'N/A',
             totalAmount: order.totalAmount,
             items,
-            orderDate: order.orderDate.toDate().toLocaleString(),
+            orderDate: order.orderDate.toDate(), 
           };
         })
       );
 
-      setOrders(ordersData);
+   
+      const sortedOrders = ordersData.sort((a, b) => a.orderDate - b.orderDate);
+
+     
+      const formattedOrders = sortedOrders.map((order) => ({
+        ...order,
+        orderDate: order.orderDate.toLocaleString(),
+      }));
+
+      setOrders(formattedOrders);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -95,6 +107,8 @@ export default function ViewOrders() {
             <Text style={styles.customer}>{item.userName}</Text>
             <Text style={styles.date}>{item.orderDate}</Text>
           </View>
+          <Text style={styles.tableNumber}>Table: {item.tableNumber}</Text>
+
           <View style={styles.divider} />
           {item.items.map((product, idx) => (
             <View key={idx} style={styles.productItem}>
@@ -145,7 +159,7 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   customer: {
     fontWeight: '600',
@@ -155,6 +169,12 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 12,
     color: '#888',
+  },
+  tableNumber: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#444',
+    marginBottom: 8,
   },
   divider: {
     height: 1,

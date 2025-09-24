@@ -1,15 +1,54 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, Dimensions } from 'react-native';
 import { MotiView } from 'moti';
+import { ref, onValue } from "firebase/database";
+import { database } from '../../firebaseConfig';
 
 const { width } = Dimensions.get('window');
 
 export default function Dashboard() {
+ 
+  const [batteryPercentage, setBatteryPercentage] = useState(0);
+  const [tray1, setTray1] = useState(0);
+  const [tray2, setTray2] = useState(0);
+  const [tray3, setTray3] = useState(0);
+
   
   const totalUsers = 120;
   const todaysRevenue = 4560;
   const totalOrders = 289;
-  const batteryPercentage = 74;
+
+ 
+  useEffect(() => {
+    const batteryRef = ref(database, "Battery/Charge");
+    const tray1Ref = ref(database, "trays/tray1");
+    const tray2Ref = ref(database, "trays/tray2");
+    const tray3Ref = ref(database, "trays/tray3");
+
+    const unsubBattery = onValue(batteryRef, (snapshot) => {
+      if (snapshot.exists()) setBatteryPercentage(snapshot.val());
+    });
+
+    const unsubTray1 = onValue(tray1Ref, (snapshot) => {
+      if (snapshot.exists()) setTray1(snapshot.val());
+    });
+
+    const unsubTray2 = onValue(tray2Ref, (snapshot) => {
+      if (snapshot.exists()) setTray2(snapshot.val());
+    });
+
+    const unsubTray3 = onValue(tray3Ref, (snapshot) => {
+      if (snapshot.exists()) setTray3(snapshot.val());
+    });
+
+  
+    return () => {
+      unsubTray1();
+      unsubBattery();
+      unsubTray2();
+      unsubTray3();
+    };
+  }, []);
 
   const cardData = [
     {
@@ -32,12 +71,26 @@ export default function Dashboard() {
       value: `${batteryPercentage}%`,
       gif: require('../../assets/battery.gif'),
     },
+    {
+      title: 'Tray 1 Table',
+      value: tray1,
+      gif: require('../../assets/orders.gif'),
+    },
+    {
+      title: 'Tray 2 Table',
+      value: tray2,
+      gif: require('../../assets/orders.gif'),
+    },
+    {
+      title: 'Tray 3 Table',
+      value: tray3,
+      gif: require('../../assets/orders.gif'),
+    },
   ];
 
   return (
     <ScrollView style={styles.scrollView}>
       <View style={styles.container}>
-      
         {cardData.map((item, index) => (
           <MotiView
             key={index}
@@ -71,7 +124,6 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
-
   card: {
     width: width * 0.9,
     backgroundColor: '#fff1d2',
@@ -80,7 +132,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 0,
     padding: 20,
-    color:"black",
     marginBottom: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',

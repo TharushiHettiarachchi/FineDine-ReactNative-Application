@@ -10,10 +10,10 @@ export default function AdminLogOut() {
   useEffect(() => {
     const logout = async () => {
       try {
-        // Simulate loading
+       
         await new Promise(resolve => setTimeout(resolve, 1500));
       
-        router.replace('/adminSignIn'); // go to index screen
+        router.replace('/adminSignIn'); 
       } catch (error) {
         console.error("Error during logout:", error);
       } finally {
