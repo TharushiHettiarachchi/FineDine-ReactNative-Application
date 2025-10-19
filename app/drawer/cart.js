@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import {
   View,
@@ -9,8 +8,8 @@ import {
   ActivityIndicator,
   Image,
   Alert,
-  Modal,
-  TextInput,
+  // Modal, // <-- Removed
+  // TextInput, // <-- Removed
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -26,24 +25,28 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
-import { getDatabase, ref, get, set } from 'firebase/database'; 
+import { getDatabase, ref, get, set } from 'firebase/database';
 import Alerts from '../../components/Alerts';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native'; // <-- Added useNavigation
 import Icon from 'react-native-vector-icons/MaterialIcons';
+
+// NOTE: You would typically pass the scanned table number back from a
+// QR scanner screen using navigation parameters.
 
 export default function Cart() {
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
-  const [modalVisible, setModalVisible] = useState(false);
-  const [tableNumber, setTableNumber] = useState('');
+  // const [modalVisible, setModalVisible] = useState(false); // <-- Removed
+  // const [tableNumber, setTableNumber] = useState(''); // <-- Removed
+
+  const navigation = useNavigation(); // <-- Added navigation hook
 
   const showAlert = (msg) => {
     setAlertMessage(msg);
     setAlertVisible(true);
   };
-
 
   useFocusEffect(
     useCallback(() => {
@@ -52,6 +55,7 @@ export default function Cart() {
   );
 
   const fetchCartItems = async () => {
+    // ... (fetchCartItems logic remains the same)
     setIsLoading(true);
     try {
       const userJSON = await AsyncStorage.getItem('user');
@@ -104,6 +108,7 @@ export default function Cart() {
     } finally {
       setIsLoading(false);
     }
+    // ...
   };
 
   const getTotal = () => {
@@ -127,17 +132,34 @@ export default function Cart() {
     }
   };
 
+  // ⭐️ MODIFICATION 1: Trigger the QR code scanner instead of showing a modal
   const confirmCheckout = () => {
     if (items.length === 0) {
       showAlert('Your cart is empty!');
       return;
     }
-    setModalVisible(true);
+
+    // CONCEPTUAL: Navigate to your QR Scanner Screen
+    // You must have a 'QRScanner' screen set up in your navigator.
+    // The scanner screen should read the QR code and then navigate back,
+    // passing the table number as a parameter, e.g., 'tableNumber'.
+    navigation.navigate('QRScanner', {
+      onScanSuccess: (scannedTableNumber) => {
+        handleCheckout(scannedTableNumber);
+      },
+    });
+
+    // For a quick, temporary test, you could mock a table number like this:
+    // handleCheckout("T101");
   };
 
-  const handleCheckout = async () => {
-    if (!tableNumber.trim()) {
-      showAlert('Please enter a table number.');
+  // ⭐️ MODIFICATION 2: Accept tableNumber as an argument
+  const handleCheckout = async (scannedTableNumber) => {
+    const tableNumber = scannedTableNumber ? String(scannedTableNumber).trim() : '';
+
+    if (!tableNumber) {
+      // This should ideally not happen if the scanner works, but acts as a safeguard.
+      showAlert('Table number is missing from the scan.');
       return;
     }
 
@@ -161,7 +183,7 @@ export default function Cart() {
 
       const orderData = {
         userId,
-        tableNumber,
+        tableNumber, // Use the scanned table number
         orderDate: Timestamp.now(),
         items: items.map(item => ({
           productId: item.id,
@@ -176,23 +198,25 @@ export default function Cart() {
 
       const orderRef = await addDoc(collection(db, 'orders'), orderData);
 
-      
+      // --- Realtime Database (RTDB) Logic ---
       const rtdb = getDatabase();
       const traysRef = ref(rtdb, 'trays');
       const snapshot = await get(traysRef);
 
+      const newTable = parseInt(tableNumber);
+
       if (snapshot.exists()) {
         let { tray1 = 0, tray2 = 0, tray3 = 0 } = snapshot.val();
-        const newTable = parseInt(tableNumber);
-
         let trayValues = [tray1, tray2, tray3].map(v => parseInt(v) || 0);
 
-     
-        if (trayValues.every(v => v !== 0)) {
+        if (trayValues.includes(newTable)) {
+          console.log(`Table ${newTable} already in a tray, skipping RTDB update.`);
+          // Do nothing if the table is already in the queue
+        } else if (trayValues.every(v => v !== 0)) {
           console.log("All trays are full, not updating.");
         } else {
-       
           trayValues.push(newTable);
+          // Filter out zeros, sort, and ensure it's still 3 slots (filled with 0s if empty)
           trayValues = trayValues.filter(v => v !== 0).sort((a, b) => a - b);
 
           while (trayValues.length < 3) {
@@ -206,15 +230,15 @@ export default function Cart() {
           });
         }
       } else {
-
         await set(traysRef, {
-          tray1: parseInt(tableNumber),
+          tray1: newTable,
           tray2: 0,
           tray3: 0,
         });
       }
+      // --- End of RTDB Logic ---
 
-  
+      // Delete items from the Firestore cart collection
       const batch = writeBatch(db);
       items.forEach(item => {
         const cartDocRef = doc(db, 'cart', item.cartDocId);
@@ -223,8 +247,8 @@ export default function Cart() {
       await batch.commit();
 
       setItems([]);
-      setTableNumber('');
-      setModalVisible(false);
+      // setTableNumber(''); // <-- Removed
+      // setModalVisible(false); // <-- Removed
       showAlert(`Order placed successfully! Order ID: ${orderRef.id}`);
     } catch (error) {
       console.error(error);
@@ -235,6 +259,7 @@ export default function Cart() {
   };
 
   const renderItem = ({ item }) => (
+    // ... (renderItem logic remains the same)
     <View style={styles.itemCard}>
       {item.imageUrl && (
         <Image
@@ -295,41 +320,15 @@ export default function Cart() {
 
           <View style={styles.totalContainer}>
             <Text style={styles.totalText}>Total: Rs. {getTotal()}</Text>
-            <Pressable style={styles.checkoutBtn} onPress={confirmCheckout}>
-              <Text style={styles.checkoutText}>Place Order</Text>
+            {/* Call confirmCheckout to trigger the scanner */}
+            <Pressable style={styles.checkoutBtn} onPress={confirmCheckout}> 
+              <Text style={styles.checkoutText}>Scan QR & Place Order</Text>
             </Pressable>
           </View>
         </>
       )}
 
-      {}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Enter Table Number</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Table Number"
-              value={tableNumber}
-              onChangeText={setTableNumber}
-              keyboardType="numeric"
-            />
-            <View style={styles.modalActions}>
-              <Pressable style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable style={styles.confirmBtn} onPress={handleCheckout}>
-                <Text style={styles.confirmText}>Confirm</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* ⭐️ REMOVED THE MODAL COMPONENT */}
 
       <Alerts
         visible={alertVisible}
@@ -341,6 +340,7 @@ export default function Cart() {
 }
 
 const styles = StyleSheet.create({
+  // ... (styles remain the same, modal/input-related styles are unused but harmless)
   container: { flex: 1, backgroundColor: '#fff' },
   list: { padding: 20 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },

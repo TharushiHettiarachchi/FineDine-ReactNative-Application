@@ -1,4 +1,4 @@
-import { Text, View, StyleSheet, ScrollView } from 'react-native';
+import { Text, View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from "expo-router";
 import { useFonts } from 'expo-font';
@@ -9,7 +9,6 @@ import ButtonGroups from '../../components/ButtonGroup';
 import { db } from '../../firebaseConfig';
 import { collection, getDocs, query, where } from "firebase/firestore";
 import Alerts from '../../components/Alerts';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AdminSignIn() {
   const [getMobile, setMobile] = useState("");
@@ -21,7 +20,6 @@ export default function AdminSignIn() {
     'AoboshiOne-Regular': require("../../assets/fonts/AoboshiOne-Regular.ttf"),
   });
 
-
   useEffect(() => {
     if (loaded || error) {
       SplashScreen.hideAsync();
@@ -31,64 +29,81 @@ export default function AdminSignIn() {
   if (!loaded && !error) return null;
 
   return (
-    <ScrollView style={styles.scrollContainer}>
-      <View style={styles.container}>
-        <View style={styles.logoContainer}>
-          <Image
-            style={styles.image}
-            source={require('../../assets/images/icon_black.png')}
-            contentFit="cover"
-            transition={1000}
-          />
-        </View>
-
-        <View style={styles.secondView}>
-          <Text style={styles.signInheader}>Admin Login</Text>
-
-          <View style={styles.inputgroupsView}>
-            <InputGroups Label={"Mobile Number"} mode={"tel"} securityType={false} functionToDo={(text) => setMobile(text)} />
-            <InputGroups Label={"Password"} mode={"text"} securityType={true} functionToDo={(text) => setPassword(text)} />
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: '#FFFFFF' }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0} 
+    >
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <View style={styles.container}>
+          <View style={styles.logoContainer}>
+            <Image
+              style={styles.image}
+              source={require('../../assets/images/icon_black.png')}
+              contentFit="cover"
+              transition={1000}
+            />
           </View>
 
-          <View style={styles.inputgroupsView1}>
-            <ButtonGroups Label={"Sign In"} functionToDo={async () => {
-              if (!getMobile || !getPassword) {
-                setAlertMessage("Please fill in both fields.");
-                setAlertVisible(true);
-                return;
-              }
+          <View style={styles.secondView}>
+            <Text style={styles.signInheader}>Admin Login</Text>
 
-              try {
-                const q = query(
-                  collection(db, "admin"),
-                  where("mobile", "==", getMobile),
-                  where("password", "==", getPassword)
-                );
-                const querySnapshot = await getDocs(q);
+            <View style={styles.inputgroupsView}>
+              <InputGroups
+                Label={"Mobile Number"}
+                mode={"tel"}
+                securityType={false}
+                functionToDo={(text) => setMobile(text)}
+              />
+              <InputGroups
+                Label={"Password"}
+                mode={"text"}
+                securityType={true}
+                functionToDo={(text) => setPassword(text)}
+              />
+            </View>
 
-                if (!querySnapshot.empty) {
-                 
-                
-                  router.replace("adminDrawer/dashboard");
-                } else {
-                  setAlertMessage("Invalid mobile or password.");
-                  setAlertVisible(true);
-                }
-              } catch (error) {
-                setAlertMessage("Error signing in: " + error.message);
-                setAlertVisible(true);
-              }
-            }} />
+            <View style={styles.inputgroupsView1}>
+              <ButtonGroups
+                Label={"Sign In"}
+                functionToDo={async () => {
+                  if (!getMobile || !getPassword) {
+                    setAlertMessage("Please fill in both fields.");
+                    setAlertVisible(true);
+                    return;
+                  }
+
+                  try {
+                    const q = query(
+                      collection(db, "admin"),
+                      where("mobile", "==", getMobile),
+                      where("password", "==", getPassword)
+                    );
+                    const querySnapshot = await getDocs(q);
+
+                    if (!querySnapshot.empty) {
+                      router.replace("adminDrawer/dashboard");
+                    } else {
+                      setAlertMessage("Invalid mobile or password.");
+                      setAlertVisible(true);
+                    }
+                  } catch (error) {
+                    setAlertMessage("Error signing in: " + error.message);
+                    setAlertVisible(true);
+                  }
+                }}
+              />
+            </View>
           </View>
         </View>
-      </View>
 
-      <Alerts
-        visible={alertVisible}
-        message={alertMessage}
-        onClose={() => setAlertVisible(false)}
-      />
-    </ScrollView>
+        <Alerts
+          visible={alertVisible}
+          message={alertMessage}
+          onClose={() => setAlertVisible(false)}
+        />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -98,10 +113,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-  },
-  scrollContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   logoContainer: {
     alignItems: 'center',

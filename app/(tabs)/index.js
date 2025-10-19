@@ -1,4 +1,4 @@
-import { Text, View, StyleSheet, ScrollView } from 'react-native';
+import { Text, View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Image } from 'expo-image';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -13,7 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Index() {
   const [checkingUser, setCheckingUser] = useState(true);
-  const [getMobile, setmobile] = useState("");
+  const [getMobile, setMobile] = useState("");
   const [showAlert, setShowAlert] = useState(false);
 
   const [loaded, error] = useFonts({
@@ -47,62 +47,73 @@ export default function Index() {
   }
 
   return (
-    <ScrollView style={styles.scrollContainer}>
-      <View style={styles.container}>
-        <View style={styles.logoContainer}>
-          <Image
-            style={styles.image}
-            source={require('../../assets/images/icon_black.png')}
-            contentFit="cover"
-            transition={1000}
-          />
-        </View>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: '#FFFFFF' }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+          <View style={styles.container}>
+            <View style={styles.logoContainer}>
+              <Image
+                style={styles.image}
+                source={require('../../assets/images/icon_black.png')}
+                contentFit="cover"
+                transition={1000}
+              />
+            </View>
 
-        <View style={styles.secondView}>
-          <Text style={styles.signInheader}>Sign In</Text>
+            <View style={styles.secondView}>
+              <Text style={styles.signInheader}>Sign In</Text>
 
-          <View style={styles.inputgroupsView}>
-            <InputGroups
-              Label={"Mobile Number"}
-              mode={"tel"}
-              securityType={false}
-              functionToDo={(text) => setmobile(text)}
-            />
+              <View style={styles.inputgroupsView}>
+                <InputGroups
+                  Label={"Mobile Number"}
+                  mode={"tel"}
+                  securityType={false}
+                  functionToDo={(text) => setMobile(text)}
+                />
+              </View>
+
+              <View style={styles.inputgroupsView1}>
+                <ButtonGroups
+                  Label={"Sign In"}
+                  functionToDo={async () => {
+                    try {
+                      const q = query(
+                        collection(db, 'user'),
+                        where('mobile', '==', getMobile)
+                      );
+                      const querySnapshot = await getDocs(q);
+
+                      if (querySnapshot.empty) {
+                        setShowAlert(true);
+                      } else {
+                        const userDoc = querySnapshot.docs[0];
+                        const userData = userDoc.data();
+                        const userWithId = { ...userData, id: userDoc.id };
+
+                        await AsyncStorage.setItem('user', JSON.stringify(userWithId));
+                        router.push('drawer/home');
+                      }
+                    } catch (error) {
+                      console.error("Sign-in error:", error);
+                    }
+                  }}
+                />
+              </View>
+
+              <Text style={styles.link1} onPress={() => router.push('/signUp')}>
+                Don't have an account? Sign Up
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.inputgroupsView1}>
-            <ButtonGroups
-              Label={"Sign In"}
-              functionToDo={async () => {
-                try {
-                  const q = query(collection(db, 'user'), where('mobile', '==', getMobile));
-                  const querySnapshot = await getDocs(q);
-
-                  if (querySnapshot.empty) {
-                    setShowAlert(true);
-                  } else {
-                    const userDoc = querySnapshot.docs[0];
-                    const userData = userDoc.data();
-                    const userWithId = { ...userData, id: userDoc.id };
-
-                    await AsyncStorage.setItem('user', JSON.stringify(userWithId));
-                    router.push('drawer/home');
-                  }
-                } catch (error) {
-                  console.error("Sign-in error:", error);
-                }
-              }}
-            />
-          </View>
-
-          <Text style={styles.link1} onPress={() => router.push('/signUp')}>
-            Don't have an account? Sign Up
-          </Text>
-        </View>
-      </View>
-
-      <Alerts visible={showAlert} message="Mobile number not found!" onClose={() => setShowAlert(false)} />
-    </ScrollView>
+          <Alerts visible={showAlert} message="Mobile number not found!" onClose={() => setShowAlert(false)} />
+        </ScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -112,10 +123,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-  },
-  scrollContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   logoContainer: {
     alignItems: 'center',
