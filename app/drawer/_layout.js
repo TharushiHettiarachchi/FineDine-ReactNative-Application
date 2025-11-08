@@ -53,7 +53,7 @@ export default function Layout() {
               backgroundColor: '#FFA726',
             },
             drawerIcon: ({ color, size }) => (
-              <MaterialIcons name="person" size={size} color={color} />
+              <MaterialIcons name="shopping-cart" size={size} color={color} />
             ),
           }}
         />
@@ -67,7 +67,7 @@ export default function Layout() {
               backgroundColor: '#FFA726',
             },
             drawerIcon: ({ color, size }) => (
-              <MaterialIcons name="person" size={size} color={color} />
+              <MaterialIcons name="assignment" size={size} color={color} />
             ),
           }}
         />
@@ -82,6 +82,22 @@ export default function Layout() {
             },
             drawerIcon: ({ color, size }) => (
               <MaterialIcons name="logout" size={size} color={color} />
+            ),
+          }}
+        />
+             <Drawer.Screen
+          name="qrScan"
+          color="#ffffffff"
+          options={{
+            color:"#000000",
+            drawerLabel: 'QR Scan',
+            headerTitle:"QR Scan",
+            headerTintColor:"#00000",
+            headerStyle: {
+              backgroundColor: '#FFA726',
+            },
+            drawerIcon: ({ color, size }) => (
+              <MaterialIcons name="qr-code-scanner" size={size} color={color} />
             ),
           }}
         />

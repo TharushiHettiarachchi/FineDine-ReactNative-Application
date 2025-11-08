@@ -2,7 +2,7 @@
   "expo": {
     "name": "FineDineMApp",
     "slug": "FineDineMApp",
-    "scheme": "FineDineMApp",
+    "scheme": "finedinemapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,7 +14,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+    
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "fine"
     },
     "android": {
       "adaptiveIcon": {

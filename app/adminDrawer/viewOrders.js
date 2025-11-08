@@ -1,11 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { collection, getDocs, doc, getDoc, query, where, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
+import Alerts from '../../components/Alerts';
 
 export default function ViewOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+
+  const showAlert = (msg) => {
+    setAlertMessage(msg);
+    setAlertVisible(true);
+  };
 
   useEffect(() => {
     fetchOrders();
@@ -46,15 +55,13 @@ export default function ViewOrders() {
             tableNumber: order.tableNumber || 'N/A',
             totalAmount: order.totalAmount,
             items,
-            orderDate: order.orderDate.toDate(), 
+            orderDate: order.orderDate.toDate(),
           };
         })
       );
 
-   
       const sortedOrders = ordersData.sort((a, b) => a.orderDate - b.orderDate);
 
-     
       const formattedOrders = sortedOrders.map((order) => ({
         ...order,
         orderDate: order.orderDate.toLocaleString(),
@@ -63,6 +70,7 @@ export default function ViewOrders() {
       setOrders(formattedOrders);
     } catch (error) {
       console.error('Error fetching orders:', error);
+      showAlert('Failed to fetch orders.');
     } finally {
       setLoading(false);
     }
@@ -73,11 +81,11 @@ export default function ViewOrders() {
       await updateDoc(doc(db, 'orders', orderId), {
         status: 'Completed',
       });
-      Alert.alert('Success', 'Order marked as completed.');
+      showAlert('Order marked as completed.');
       fetchOrders();
     } catch (error) {
       console.error('Error completing order:', error);
-      Alert.alert('Error', 'Failed to complete the order.');
+      showAlert('Failed to complete the order.');
     }
   };
 
@@ -93,44 +101,58 @@ export default function ViewOrders() {
     return (
       <View style={styles.centered}>
         <Text style={styles.noOrdersText}>No pending orders.</Text>
+        <Alerts
+          visible={alertVisible}
+          message={alertMessage}
+          onClose={() => setAlertVisible(false)}
+        />
       </View>
     );
   }
 
   return (
-    <FlatList
-      data={orders}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <View style={styles.orderCard}>
-          <View style={styles.headerRow}>
-            <Text style={styles.customer}>{item.userName}</Text>
-            <Text style={styles.date}>{item.orderDate}</Text>
-          </View>
-          <Text style={styles.tableNumber}>Table: {item.tableNumber}</Text>
-
-          <View style={styles.divider} />
-          {item.items.map((product, idx) => (
-            <View key={idx} style={styles.productItem}>
-              <Text style={styles.productText}>{product.productName}</Text>
-              {product.fullPortionQty > 0 && (
-                <Text style={styles.portionText}>Full Portion x {product.fullPortionQty}</Text>
-              )}
-              {product.halfPortionQty > 0 && (
-                <Text style={styles.portionText}>Half Portion x {product.halfPortionQty}</Text>
-              )}
+    <View style={{ flex: 1, backgroundColor: '#fefefe' }}>
+      <FlatList
+        data={orders}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.orderCard}>
+            <View style={styles.headerRow}>
+              <Text style={styles.customer}>{item.userName}</Text>
+              <Text style={styles.date}>{item.orderDate}</Text>
             </View>
-          ))}
-          <Text style={styles.total}>Total: Rs. {item.totalAmount}</Text>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => completeOrder(item.id)}
-          >
-            <Text style={styles.buttonText}>Complete Order</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    />
+            <Text style={styles.tableNumber}>Table: {item.tableNumber}</Text>
+
+            <View style={styles.divider} />
+            {item.items.map((product, idx) => (
+              <View key={idx} style={styles.productItem}>
+                <Text style={styles.productText}>{product.productName}</Text>
+                {product.fullPortionQty > 0 && (
+                  <Text style={styles.portionText}>Full Portion x {product.fullPortionQty}</Text>
+                )}
+                {product.halfPortionQty > 0 && (
+                  <Text style={styles.portionText}>Half Portion x {product.halfPortionQty}</Text>
+                )}
+              </View>
+            ))}
+            <Text style={styles.total}>Total: Rs. {item.totalAmount}</Text>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => completeOrder(item.id)}
+            >
+              <Text style={styles.buttonText}>Complete Order</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      />
+
+      {/* ✅ Move your Alerts component OUTSIDE the FlatList */}
+      <Alerts
+        visible={alertVisible}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
+    </View>
   );
 }
 

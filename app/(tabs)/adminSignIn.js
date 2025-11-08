@@ -142,6 +142,7 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: 'center',
     justifyContent: 'center',
+    color:"#000000",
   },
   inputgroupsView1: {
     width: "100%",

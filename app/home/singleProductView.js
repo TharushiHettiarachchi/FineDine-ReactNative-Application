@@ -159,8 +159,18 @@ export default function SingleProductView() {
       )}
 
       <Image source={{ uri: item.imageUrl }} style={styles.image} />
-      <Text style={styles.name}>{item.name}</Text>
+
+      <View style={styles.nameRow}>
+        <Text style={styles.name}>{item.name}</Text>
+        {(item.isVegetarian || item['is vegetarian']) && (
+          <View style={styles.vegLabel}>
+            <Text style={styles.vegText}>VEG</Text>
+          </View>
+        )}
+      </View>
+
       <Text style={styles.category}>{item.category}</Text>
+
       <Text style={styles.description}>
         {item.description || 'No description available.'}
       </Text>
@@ -236,12 +246,30 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     resizeMode: 'cover',
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   name: {
     fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'Nunito',
-    marginBottom: 8,
     color: '#333',
+  },
+  vegLabel: {
+    backgroundColor: '#2E7D32',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 5,
+    marginLeft: 8,
+  },
+  vegText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+    fontFamily: 'Nunito',
   },
   category: {
     fontSize: 16,

@@ -2,14 +2,19 @@ import { Text, View, StyleSheet, ScrollView, FlatList, Image } from 'react-nativ
 import { useEffect, useState } from "react";
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
-import SearcgBarGroups from '../../components/SearchBarGroups';
 import ButtonGroups from '../../components/ButtonGroup';
+import SearchBarGroups from '../../components/SearchBarGroups';
 import { useRouter } from 'expo-router';
-
+import useTrayListener from '../hooks/useTrayListener';
 
 export default function Home() {
-  const [groupedFoods, setGroupedFoods] = useState({});
+  const [allFoods, setAllFoods] = useState([]); // full list
+  const [groupedFoods, setGroupedFoods] = useState({}); // filtered & grouped
+  const [searchText, setSearchText] = useState('');
   const router = useRouter();
+
+  // ✅ Use tray listener in background (no UI display)
+  useTrayListener();
 
   useEffect(() => {
     const fetchFoods = async () => {
@@ -20,24 +25,51 @@ export default function Home() {
         foodList.push({ id: doc.id, ...doc.data() });
       });
 
-      const grouped = foodList.reduce((acc, item) => {
-        const category = item.category || 'Other';
-        if (!acc[category]) acc[category] = [];
-        acc[category].push(item);
-        return acc;
-      }, {});
-
-      setGroupedFoods(grouped);
+      setAllFoods(foodList);
+      groupFoods(foodList);
     };
 
     fetchFoods();
   }, []);
 
+  // Group foods by category
+  const groupFoods = (foodList) => {
+    const grouped = foodList.reduce((acc, item) => {
+      const category = item.category || 'Other';
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(item);
+      return acc;
+    }, {});
+    setGroupedFoods(grouped);
+  };
+
+  // Handle search input
+  const handleSearch = (text) => {
+    setSearchText(text);
+
+    if (text.trim() === '') {
+      groupFoods(allFoods);
+    } else {
+      const filtered = allFoods.filter(item =>
+        item.name.toLowerCase().includes(text.toLowerCase())
+      );
+      groupFoods(filtered);
+    }
+  };
+
   return (
     <ScrollView style={styles.scrollContainer}>
       <View style={styles.container}>
-        <SearcgBarGroups mode="text" securityType={false} functionToDo={(text) => { }} />
+        {/* Search Bar */}
+        <SearchBarGroups
+          functionToDo={handleSearch}
+          inputValue={searchText}
+          mode="text"
+          securityType={false}
+          editStatus={true}
+        />
 
+        {/* Products by category */}
         {Object.keys(groupedFoods).map((category) => (
           <View key={category} style={styles.categoryBlock}>
             <Text style={styles.categoryTitle}>{category}</Text>
@@ -50,10 +82,19 @@ export default function Home() {
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <View style={styles.card}>
-                  <Image source={{ uri: item.imageUrl }} style={styles.foodImage} />
+                  <View style={styles.imageWrapper}>
+                    <Image source={{ uri: item.imageUrl }} style={styles.foodImage} />
+                    {(item.isVegetarian || item["is vegetarian"]) && (
+                      <View style={styles.vegLabel}>
+                        <Text style={styles.vegText}>VEG</Text>
+                      </View>
+                    )}
+                  </View>
+
                   <Text style={styles.foodName}>{item.name}</Text>
-                  <Text style={styles.price}>Full Portion:    Rs. {item.fullPortionPrice}</Text>
-                  <Text style={styles.price}>Half Portion:    Rs. {item.halfPortionPrice}</Text>
+                  <Text style={styles.price}>Full Portion: Rs. {item.fullPortionPrice}</Text>
+                  <Text style={styles.price}>Half Portion: Rs. {item.halfPortionPrice}</Text>
+
                   <ButtonGroups
                     Label={"View"}
                     functionToDo={() =>
@@ -66,8 +107,6 @@ export default function Home() {
                       })
                     }
                   />
-
-
                 </View>
               )}
             />
@@ -94,7 +133,6 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingLeft: 16,
     paddingBottom: 20,
-
   },
   categoryTitle: {
     fontSize: 20,
@@ -115,13 +153,30 @@ const styles = StyleSheet.create({
     padding: 10,
     borderStyle: "solid",
     borderWidth: 1,
-    // elevation: 3,
     alignItems: "center",
+  },
+  imageWrapper: {
+    width: '100%',
+    position: 'relative',
   },
   foodImage: {
     width: '100%',
     height: 150,
     borderRadius: 8,
+  },
+  vegLabel: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: '#2E7D32',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 5,
+  },
+  vegText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   foodName: {
     fontWeight: '600',
@@ -132,7 +187,6 @@ const styles = StyleSheet.create({
   price: {
     color: '#000000',
     fontSize: 13,
-    // alignSelf:"flex-start",
     marginLeft: 5,
     marginTop: 5,
     marginBottom: 5,
@@ -143,5 +197,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#ccc',
     marginVertical: 10,
   },
-
 });
