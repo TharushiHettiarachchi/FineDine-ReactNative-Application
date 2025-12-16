@@ -4,7 +4,7 @@ import { MotiView } from 'moti';
 import { collection, getDocs } from "firebase/firestore";
 import { ref, onValue } from "firebase/database";
 import { database, db } from '../../firebaseConfig';
-import useTrayListener from '../hooks/useTrayListener'; // ✅ Global tray hook
+import useTrayListener from '../../hooks/useTrayListener';
 
 const { width } = Dimensions.get('window');
 
@@ -14,43 +14,55 @@ export default function Dashboard() {
   const [todaysRevenue, setTodaysRevenue] = useState(0);
   const [totalOrders, setTotalOrders] = useState(0);
 
-  // ✅ Use global tray listener (auto updates when order is served)
+  
   const { tray1, tray2, tray3, trayCount, loading } = useTrayListener();
 
-  // ✅ Fetch dashboard stats
+ 
   useEffect(() => {
     const fetchStats = async () => {
       try {
+      
         const usersSnapshot = await getDocs(collection(db, "user"));
         setTotalUsers(usersSnapshot.size);
 
+      
         const ordersSnapshot = await getDocs(collection(db, "orders"));
         setTotalOrders(ordersSnapshot.size);
 
+   
         let revenue = 0;
         const today = new Date();
         ordersSnapshot.forEach(doc => {
           const data = doc.data();
           if (data.orderDate) {
-            const orderDate = new Date(data.orderDate);
+            let orderDate;
+       
+            if (typeof data.orderDate.toDate === "function") {
+              orderDate = data.orderDate.toDate();
+            } else {
+              orderDate = new Date(data.orderDate);
+            }
+
             if (
               orderDate.getDate() === today.getDate() &&
               orderDate.getMonth() === today.getMonth() &&
               orderDate.getFullYear() === today.getFullYear()
             ) {
-              revenue += data.totalAmount || 0;
+              revenue += Number(data.totalAmount) || 0;
             }
           }
         });
         setTodaysRevenue(revenue);
+
       } catch (error) {
         console.error("Error fetching dashboard stats:", error);
       }
     };
+
     fetchStats();
   }, []);
 
-  // ✅ Battery listener
+ 
   useEffect(() => {
     const batteryRef = ref(database, "Battery/Charge");
     const unsubBattery = onValue(batteryRef, snapshot => {
@@ -59,16 +71,16 @@ export default function Dashboard() {
     return () => unsubBattery();
   }, []);
 
-  // ✅ Dashboard cards
+  
   const cardData = [
     { title: 'Registered Users', value: totalUsers, gif: require('../../assets/users.gif') },
     { title: "Today's Revenue", value: `Rs. ${todaysRevenue}.00`, gif: require('../../assets/money.gif') },
     { title: 'Total Orders', value: totalOrders, gif: require('../../assets/orders.gif') },
     { title: 'Robot Battery', value: `${batteryPercentage}%`, gif: require('../../assets/battery.gif') },
-    { title: 'Tray 1 Table', value: tray1, gif: require('../../assets/orders.gif'), isTray: true },
-    { title: 'Tray 2 Table', value: tray2, gif: require('../../assets/orders.gif'), isTray: true },
-    { title: 'Tray 3 Table', value: tray3, gif: require('../../assets/orders.gif'), isTray: true },
-    { title: 'Tray Count', value: trayCount, gif: require('../../assets/orders.gif'), isTray: true },
+    { title: 'Tray 1 Table', value: tray1, gif: require('../../assets/trays.gif'), isTray: true },
+    { title: 'Tray 2 Table', value: tray2, gif: require('../../assets/trays.gif'), isTray: true },
+    { title: 'Tray 3 Table', value: tray3, gif: require('../../assets/trays.gif'), isTray: true },
+    { title: 'Tray Count', value: trayCount, gif: require('../../assets/trays.gif'), isTray: true },
   ];
 
   return (

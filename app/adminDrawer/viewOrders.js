@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { collection, getDocs, doc, getDoc, query, where, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import Alerts from '../../components/Alerts';
 
 export default function ViewOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
 
@@ -17,64 +16,62 @@ export default function ViewOrders() {
   };
 
   useEffect(() => {
-    fetchOrders();
+    const ordersQuery = query(collection(db, 'orders'), where('status', '==', 'Pending'));
+
+    const unsubscribe = onSnapshot(ordersQuery, async (orderSnapshot) => {
+      try {
+        const ordersData = await Promise.all(
+          orderSnapshot.docs.map(async (docSnap) => {
+            const order = docSnap.data();
+
+            const userRef = doc(db, 'user', order.userId);
+            const userDoc = await getDoc(userRef);
+            const userName = userDoc.exists()
+              ? `${userDoc.data().firstName} ${userDoc.data().lastName}`
+              : 'Unknown';
+
+            const items = await Promise.all(
+              order.items.map(async (item) => {
+                const productRef = doc(db, 'foods', item.productId);
+                const productDoc = await getDoc(productRef);
+                const productName = productDoc.exists() ? productDoc.data().name : 'Unknown Food';
+
+                return {
+                  productName,
+                  fullPortionQty: item.fullPortionQty,
+                  halfPortionQty: item.halfPortionQty,
+                };
+              })
+            );
+
+            return {
+              id: docSnap.id,
+              userName,
+              tableNumber: order.tableNumber || 'N/A',
+              totalAmount: order.totalAmount,
+              items,
+              orderDate: order.orderDate.toDate(),
+            };
+          })
+        );
+
+        const sortedOrders = ordersData.sort((a, b) => a.orderDate - b.orderDate);
+        const formattedOrders = sortedOrders.map((order) => ({
+          ...order,
+          orderDate: order.orderDate.toLocaleString(),
+        }));
+
+        setOrders(formattedOrders);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        showAlert('Failed to fetch orders.');
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
-
-  const fetchOrders = async () => {
-    try {
-      const ordersQuery = query(collection(db, 'orders'), where('status', '==', 'Pending'));
-      const orderSnapshot = await getDocs(ordersQuery);
-
-      const ordersData = await Promise.all(
-        orderSnapshot.docs.map(async (docSnap) => {
-          const order = docSnap.data();
-
-          const userRef = doc(db, 'user', order.userId);
-          const userDoc = await getDoc(userRef);
-          const userName = userDoc.exists()
-            ? `${userDoc.data().firstName} ${userDoc.data().lastName}`
-            : 'Unknown';
-
-          const items = await Promise.all(
-            order.items.map(async (item) => {
-              const productRef = doc(db, 'foods', item.productId);
-              const productDoc = await getDoc(productRef);
-              const productName = productDoc.exists() ? productDoc.data().name : 'Unknown Food';
-
-              return {
-                productName,
-                fullPortionQty: item.fullPortionQty,
-                halfPortionQty: item.halfPortionQty,
-              };
-            })
-          );
-
-          return {
-            id: docSnap.id,
-            userName,
-            tableNumber: order.tableNumber || 'N/A',
-            totalAmount: order.totalAmount,
-            items,
-            orderDate: order.orderDate.toDate(),
-          };
-        })
-      );
-
-      const sortedOrders = ordersData.sort((a, b) => a.orderDate - b.orderDate);
-
-      const formattedOrders = sortedOrders.map((order) => ({
-        ...order,
-        orderDate: order.orderDate.toLocaleString(),
-      }));
-
-      setOrders(formattedOrders);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-      showAlert('Failed to fetch orders.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const completeOrder = async (orderId) => {
     try {
@@ -82,7 +79,6 @@ export default function ViewOrders() {
         status: 'Completed',
       });
       showAlert('Order marked as completed.');
-      fetchOrders();
     } catch (error) {
       console.error('Error completing order:', error);
       showAlert('Failed to complete the order.');
@@ -101,11 +97,7 @@ export default function ViewOrders() {
     return (
       <View style={styles.centered}>
         <Text style={styles.noOrdersText}>No pending orders.</Text>
-        <Alerts
-          visible={alertVisible}
-          message={alertMessage}
-          onClose={() => setAlertVisible(false)}
-        />
+        <Alerts visible={alertVisible} message={alertMessage} onClose={() => setAlertVisible(false)} />
       </View>
     );
   }
@@ -136,22 +128,13 @@ export default function ViewOrders() {
               </View>
             ))}
             <Text style={styles.total}>Total: Rs. {item.totalAmount}</Text>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => completeOrder(item.id)}
-            >
+            <TouchableOpacity style={styles.button} onPress={() => completeOrder(item.id)}>
               <Text style={styles.buttonText}>Complete Order</Text>
             </TouchableOpacity>
           </View>
         )}
       />
-
-      {/* ✅ Move your Alerts component OUTSIDE the FlatList */}
-      <Alerts
-        visible={alertVisible}
-        message={alertMessage}
-        onClose={() => setAlertVisible(false)}
-      />
+      <Alerts visible={alertVisible} message={alertMessage} onClose={() => setAlertVisible(false)} />
     </View>
   );
 }

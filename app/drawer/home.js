@@ -5,7 +5,8 @@ import { db } from '../../firebaseConfig';
 import ButtonGroups from '../../components/ButtonGroup';
 import SearchBarGroups from '../../components/SearchBarGroups';
 import { useRouter } from 'expo-router';
-import useTrayListener from '../hooks/useTrayListener';
+import useTrayListener from '../../hooks/useTrayListener';
+
 
 export default function Home() {
   const [allFoods, setAllFoods] = useState([]); // full list

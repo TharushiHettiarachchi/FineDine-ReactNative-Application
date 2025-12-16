@@ -6,15 +6,16 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   collection, query, where, getDocs, doc,
-  getDoc, deleteDoc, addDoc, Timestamp, writeBatch
+  getDoc, deleteDoc, addDoc, Timestamp, writeBatch, orderBy, limit
 } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
+import { ref, set } from 'firebase/database';
+import { db, database } from '../../firebaseConfig';
 import Alerts from '../../components/Alerts';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import ButtonGroups from '../../components/ButtonGroup';
 import { router, useLocalSearchParams } from 'expo-router';
-import useTrayListener from '../hooks/useTrayListener'; // ✅ Import your hook
+import useTrayListener from '../../hooks/useTrayListener';
 
 export default function Cart() {
   const [items, setItems] = useState([]);
@@ -24,8 +25,6 @@ export default function Cart() {
   const [tableNumber, setTableNumber] = useState('');
 
   const { table } = useLocalSearchParams();
-
-  // ✅ Use global tray listener (background)
   const { tray1, tray2, tray3, trayCount } = useTrayListener();
 
   const showAlert = (msg) => {
@@ -53,6 +52,7 @@ export default function Cart() {
     }
   }, [table]);
 
+  // Fetch cart items for the logged-in user
   const fetchCartItems = async () => {
     setIsLoading(true);
     try {
@@ -81,17 +81,15 @@ export default function Cart() {
           const productSnap = await getDoc(productRef);
 
           let product = {};
-          if (productSnap.exists()) {
-            product = productSnap.data();
-          }
+          if (productSnap.exists()) product = productSnap.data();
 
           return {
             cartDocId: docItem.id,
             id: item.productId,
             name: product.name || 'Unknown Product',
             imageUrl: product.imageUrl || null,
-            fullPortionPrice: parseFloat(product.fullPortionPrice || '0').toFixed(2),
-            halfPortionPrice: parseFloat(product.halfPortionPrice || '0').toFixed(2),
+            fullPortionPrice: parseFloat(product.fullPortionPrice || 0),
+            halfPortionPrice: parseFloat(product.halfPortionPrice || 0),
             full: item.fullPortionQty || 0,
             half: item.halfPortionQty || 0,
           };
@@ -110,8 +108,8 @@ export default function Cart() {
   const getTotal = () => {
     return items
       .reduce((total, item) => {
-        const fullTotal = item.full * parseFloat(item.fullPortionPrice);
-        const halfTotal = item.half * parseFloat(item.halfPortionPrice);
+        const fullTotal = item.full * item.fullPortionPrice;
+        const halfTotal = item.half * item.halfPortionPrice;
         return total + fullTotal + halfTotal;
       }, 0)
       .toFixed(2);
@@ -128,12 +126,45 @@ export default function Cart() {
     }
   };
 
+  // Update trays in Realtime Database
+  const updateTrays = async () => {
+    try {
+      const ordersCol = collection(db, 'orders');
+      const q = query(
+        ordersCol,
+        where('status', '==', 'Pending'),
+        orderBy('orderDate', 'asc'),
+        limit(3)
+      );
+      const querySnapshot = await getDocs(q);
+
+      const pendingOrders = [];
+      querySnapshot.forEach(doc => pendingOrders.push(doc.data()));
+      pendingOrders.sort((a, b) => a.tableNumber - b.tableNumber);
+
+      const trayData = {
+        tray1: parseInt(pendingOrders[0]?.tableNumber || 0, 10),
+        tray2: parseInt(pendingOrders[1]?.tableNumber || 0, 10),
+        tray3: parseInt(pendingOrders[2]?.tableNumber || 0, 10),
+      };
+      const count = [trayData.tray1, trayData.tray2, trayData.tray3].filter(t => t !== 0).length;
+
+      await Promise.all([
+        set(ref(database, 'trays/tray1'), trayData.tray1),
+        set(ref(database, 'trays/tray2'), trayData.tray2),
+        set(ref(database, 'trays/tray3'), trayData.tray3),
+        set(ref(database, 'trays/trayCount'), count)
+      ]);
+    } catch (error) {
+      console.error('Error updating trays after checkout:', error);
+    }
+  };
+
   const handleCheckout = async (tableNo = tableNumber) => {
     if (!tableNo || !tableNo.trim()) {
       showAlert('Invalid table number.');
       return;
     }
-
     if (items.length === 0) {
       showAlert('Your cart is empty!');
       return;
@@ -158,7 +189,7 @@ export default function Cart() {
 
       const orderData = {
         userId,
-        tableNumber: parseInt(tableNo),
+        tableNumber: parseInt(tableNo, 10),
         orderDate: Timestamp.now(),
         items: items.map(item => ({
           productId: item.id,
@@ -171,9 +202,8 @@ export default function Cart() {
         status: 'Pending',
       };
 
+      // Save order
       const orderRef = await addDoc(collection(db, 'orders'), orderData);
-
-      // ✅ Trays automatically updated via useTrayListener, so no need to manually update here
 
       // Clear cart
       const batch = writeBatch(db);
@@ -183,9 +213,14 @@ export default function Cart() {
       });
       await batch.commit();
 
+      // Reset state
       setTableNumber('');
       setItems([]);
       showAlert(`Order placed successfully! Order ID: ${orderRef.id}`);
+
+      // Update trays immediately
+      updateTrays();
+
     } catch (error) {
       console.error(error);
       showAlert('Failed to place order');
@@ -204,7 +239,7 @@ export default function Cart() {
         <Text style={styles.itemDetails}>Full: {item.full} x Rs.{item.fullPortionPrice}</Text>
         <Text style={styles.itemDetails}>Half: {item.half} x Rs.{item.halfPortionPrice}</Text>
         <Text style={styles.itemPrice}>
-          Total: Rs. {(item.full * parseFloat(item.fullPortionPrice) + item.half * parseFloat(item.halfPortionPrice)).toFixed(2)}
+          Total: Rs. {(item.full * item.fullPortionPrice + item.half * item.halfPortionPrice).toFixed(2)}
         </Text>
       </View>
       <Pressable

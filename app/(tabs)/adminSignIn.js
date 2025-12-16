@@ -11,8 +11,8 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import Alerts from '../../components/Alerts';
 
 export default function AdminSignIn() {
-  const [getMobile, setMobile] = useState("");
-  const [getPassword, setPassword] = useState("");
+  const [getMobile, setMobile] = useState("0766365130");
+  const [getPassword, setPassword] = useState("admin@123");
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
 
