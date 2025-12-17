@@ -52,7 +52,7 @@ export default function Cart() {
     }
   }, [table]);
 
-  // Fetch cart items for the logged-in user
+ 
   const fetchCartItems = async () => {
     setIsLoading(true);
     try {
@@ -126,7 +126,7 @@ export default function Cart() {
     }
   };
 
-  // Update trays in Realtime Database
+  
   const updateTrays = async () => {
     try {
       const ordersCol = collection(db, 'orders');
@@ -202,10 +202,10 @@ export default function Cart() {
         status: 'Pending',
       };
 
-      // Save order
+      
       const orderRef = await addDoc(collection(db, 'orders'), orderData);
 
-      // Clear cart
+     
       const batch = writeBatch(db);
       items.forEach(item => {
         const cartDocRef = doc(db, 'cart', item.cartDocId);
@@ -213,12 +213,10 @@ export default function Cart() {
       });
       await batch.commit();
 
-      // Reset state
       setTableNumber('');
       setItems([]);
       showAlert(`Order placed successfully! Order ID: ${orderRef.id}`);
 
-      // Update trays immediately
       updateTrays();
 
     } catch (error) {

@@ -14,7 +14,7 @@ export default function Profile() {
   const [mobile, setMobile] = useState('');
 
   useEffect(() => {
-   
+
     const loadUserData = async () => {
       try {
         const userJSON = await AsyncStorage.getItem('user');
@@ -23,7 +23,7 @@ export default function Profile() {
           setFirstName(user.firstName || '');
           setLastName(user.lastName || '');
           setMobile(user.mobile || '');
-          setImage(user.imageUrl || null); 
+          setImage(user.imageUrl || null);
         }
       } catch (e) {
         console.error('Failed to load user data:', e);

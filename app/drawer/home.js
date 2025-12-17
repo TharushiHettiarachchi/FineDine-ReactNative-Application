@@ -9,12 +9,12 @@ import useTrayListener from '../../hooks/useTrayListener';
 
 
 export default function Home() {
-  const [allFoods, setAllFoods] = useState([]); // full list
-  const [groupedFoods, setGroupedFoods] = useState({}); // filtered & grouped
+  const [allFoods, setAllFoods] = useState([]); 
+  const [groupedFoods, setGroupedFoods] = useState({}); 
   const [searchText, setSearchText] = useState('');
   const router = useRouter();
 
-  // ✅ Use tray listener in background (no UI display)
+  
   useTrayListener();
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export default function Home() {
     fetchFoods();
   }, []);
 
-  // Group foods by category
+  
   const groupFoods = (foodList) => {
     const grouped = foodList.reduce((acc, item) => {
       const category = item.category || 'Other';
@@ -44,7 +44,7 @@ export default function Home() {
     setGroupedFoods(grouped);
   };
 
-  // Handle search input
+  
   const handleSearch = (text) => {
     setSearchText(text);
 
@@ -61,7 +61,7 @@ export default function Home() {
   return (
     <ScrollView style={styles.scrollContainer}>
       <View style={styles.container}>
-        {/* Search Bar */}
+      
         <SearchBarGroups
           functionToDo={handleSearch}
           inputValue={searchText}
@@ -70,7 +70,7 @@ export default function Home() {
           editStatus={true}
         />
 
-        {/* Products by category */}
+      
         {Object.keys(groupedFoods).map((category) => (
           <View key={category} style={styles.categoryBlock}>
             <Text style={styles.categoryTitle}>{category}</Text>

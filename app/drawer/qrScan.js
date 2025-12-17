@@ -10,7 +10,7 @@ export default function QrScan() {
   const [isScanning, setIsScanning] = useState(true);
   const router = useRouter();
 
-  // ✅ Re-enable scanning every time this screen is focused
+ 
   useFocusEffect(
     React.useCallback(() => {
       setIsScanning(true);
@@ -24,7 +24,7 @@ export default function QrScan() {
 
   const handleBarcodeScanned = ({ data }) => {
     if (!isScanning) return;
-    setIsScanning(false); // temporarily disable to prevent double triggers
+    setIsScanning(false); 
 
     console.log("Scanned Table Number:", data);
 
@@ -35,7 +35,7 @@ export default function QrScan() {
       return;
     }
 
-    // ✅ Navigate back to Cart and pass the table number
+    
     router.replace({
       pathname: '/drawer/cart',
       params: { table: String(data) },

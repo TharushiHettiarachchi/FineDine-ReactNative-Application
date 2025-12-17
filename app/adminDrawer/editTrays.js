@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
+  ScrollView,
 } from "react-native";
 import { database } from "../../firebaseConfig";
 import { ref, onValue, update } from "firebase/database";
 
 export default function EditTrays() {
+  
   const [tray1, setTray1] = useState("");
   const [tray2, setTray2] = useState("");
   const [tray3, setTray3] = useState("");
@@ -19,35 +21,47 @@ export default function EditTrays() {
   const [served, setServed] = useState(false);
   const [hasServed, setHasServed] = useState(false);
   const [hasEmergency, setHasEmergency] = useState(false);
+  const [charging, setCharging] = useState(false);
+
+ 
+  const [ultraLeft, setUltraLeft] = useState("");
+  const [ultraCenter, setUltraCenter] = useState("");
+  const [ultraRight, setUltraRight] = useState("");
 
   useEffect(() => {
     const traysRef = ref(database, "trays/");
     const ordersRef = ref(database, "orders/");
     const robotRef = ref(database, "robot/");
+    const ultrasonicRef = ref(database, "ultrasonic/");
 
-    // 🔄 Listen to trays
     const unsubTrays = onValue(traysRef, (snapshot) => {
       if (snapshot.exists()) {
-        const data = snapshot.val();
-        setTray1(String(data.tray1 ?? ""));
-        setTray2(String(data.tray2 ?? ""));
-        setTray3(String(data.tray3 ?? ""));
+        const d = snapshot.val();
+        setTray1(String(d.tray1 ?? ""));
+        setTray2(String(d.tray2 ?? ""));
+        setTray3(String(d.tray3 ?? ""));
       }
     });
 
-    // 🔄 Listen to order served
     const unsubOrders = onValue(ordersRef, (snapshot) => {
-      if (snapshot.exists()) {
-        setServed(snapshot.val().served ?? false);
-      }
+      if (snapshot.exists()) setServed(snapshot.val().served ?? false);
     });
 
-    // 🔄 Listen to robot states (has_served + emergency)
     const unsubRobot = onValue(robotRef, (snapshot) => {
       if (snapshot.exists()) {
-        const data = snapshot.val();
-        setHasServed(data.has_served ?? false);
-        setHasEmergency(data.emergency ?? false);
+        const d = snapshot.val();
+        setHasServed(d.has_served ?? false);
+        setHasEmergency(d.emergency ?? false);
+        setCharging(d.charging ?? false);
+      }
+    });
+
+    const unsubUltrasonic = onValue(ultrasonicRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const d = snapshot.val();
+        setUltraLeft(String(d.left ?? ""));
+        setUltraCenter(String(d.center ?? ""));
+        setUltraRight(String(d.right ?? ""));
       }
     });
 
@@ -55,11 +69,12 @@ export default function EditTrays() {
       unsubTrays();
       unsubOrders();
       unsubRobot();
+      unsubUltrasonic();
     };
   }, []);
 
-  // 💾 Save tray numbers
-  const saveChanges = async () => {
+  
+  const saveTrays = async () => {
     const t1 = parseInt(tray1, 10);
     const t2 = parseInt(tray2, 10);
     const t3 = parseInt(tray3, 10);
@@ -70,39 +85,38 @@ export default function EditTrays() {
     }
 
     try {
-      await update(ref(database, "trays/"), {
-        tray1: t1,
-        tray2: t2,
-        tray3: t3,
-      });
+      await update(ref(database, "trays/"), { tray1: t1, tray2: t2, tray3: t3 });
       Alert.alert("Success", "Tray numbers updated!");
     } catch (err) {
       Alert.alert("Error", err.message);
     }
   };
 
-  // 🔁 Toggle order served
-  const toggleServed = async (value) => {
-    setServed(value);
-    await update(ref(database, "orders/"), { served: value });
-  };
 
-  // 🤖 Toggle has_served
-  const toggleHasServed = async (value) => {
-    setHasServed(value);
-    await update(ref(database, "robot/"), { has_served: value });
-  };
+  const saveUltrasonic = async () => {
+    const l = parseInt(ultraLeft, 10);
+    const c = parseInt(ultraCenter, 10);
+    const r = parseInt(ultraRight, 10);
 
-  // 🚨 Toggle emergency
-  const toggleHasEmergency = async (value) => {
-    setHasEmergency(value);
-    await update(ref(database, "robot/"), { emergency: value });
+    if ([l, c, r].some(isNaN)) {
+      Alert.alert("Invalid Input", "Enter valid ultrasonic values.");
+      return;
+    }
+
+    try {
+      await update(ref(database, "ultrasonic/"), { left: l, center: c, right: r });
+      Alert.alert("Success", "Ultrasonic values updated!");
+    } catch (err) {
+      Alert.alert("Error", err.message);
+    }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Edit Tray Numbers</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.header}>Robot Control Panel</Text>
 
+    
+      <Text style={styles.sectionTitle}>Tray Configuration</Text>
       <TextInput
         style={styles.input}
         placeholder="Tray 1 Table Number"
@@ -110,7 +124,6 @@ export default function EditTrays() {
         onChangeText={(t) => setTray1(t.replace(/[^0-9]/g, ""))}
         keyboardType="numeric"
       />
-
       <TextInput
         style={styles.input}
         placeholder="Tray 2 Table Number"
@@ -118,7 +131,6 @@ export default function EditTrays() {
         onChangeText={(t) => setTray2(t.replace(/[^0-9]/g, ""))}
         keyboardType="numeric"
       />
-
       <TextInput
         style={styles.input}
         placeholder="Tray 3 Table Number"
@@ -126,43 +138,76 @@ export default function EditTrays() {
         onChangeText={(t) => setTray3(t.replace(/[^0-9]/g, ""))}
         keyboardType="numeric"
       />
-
-      <TouchableOpacity style={styles.button} onPress={saveChanges}>
-        <Text style={styles.buttonText}>Save Changes</Text>
+      <TouchableOpacity style={styles.button} onPress={saveTrays}>
+        <Text style={styles.buttonText}>Save Trays</Text>
       </TouchableOpacity>
 
+     
+      <Text style={styles.sectionTitle}>Robot Status</Text>
       <View style={styles.toggleRow}>
         <Text style={styles.toggleText}>Order Served</Text>
-        <Switch value={served} onValueChange={toggleServed} />
+        <Switch value={served} onValueChange={(v) => update(ref(database, "orders/"), { served: v })} />
       </View>
-
       <View style={styles.toggleRow}>
         <Text style={styles.toggleText}>Robot Has Served</Text>
-        <Switch value={hasServed} onValueChange={toggleHasServed} />
+        <Switch value={hasServed} onValueChange={(v) => update(ref(database, "robot/"), { has_served: v })} />
+      </View>
+      <View style={styles.toggleRow}>
+        <Text style={styles.toggleText}>Emergency</Text>
+        <Switch value={hasEmergency} onValueChange={(v) => update(ref(database, "robot/"), { emergency: v })} />
+      </View>
+      <View style={styles.toggleRow}>
+        <Text style={styles.toggleText}>Charging</Text>
+        <Switch value={charging} onValueChange={(v) => update(ref(database, "robot/"), { charging: v })} />
       </View>
 
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleText}>Robot Emergency</Text>
-        <Switch value={hasEmergency} onValueChange={toggleHasEmergency} />
-      </View>
-    </View>
+     
+      <Text style={styles.sectionTitle}>Ultrasonic Sensors (cm)</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Left Ultrasonic"
+        value={ultraLeft}
+        onChangeText={(t) => setUltraLeft(t.replace(/[^0-9]/g, ""))}
+        keyboardType="numeric"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Center Ultrasonic"
+        value={ultraCenter}
+        onChangeText={(t) => setUltraCenter(t.replace(/[^0-9]/g, ""))}
+        keyboardType="numeric"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Right Ultrasonic"
+        value={ultraRight}
+        onChangeText={(t) => setUltraRight(t.replace(/[^0-9]/g, ""))}
+        keyboardType="numeric"
+      />
+      <TouchableOpacity style={styles.button} onPress={saveUltrasonic}>
+        <Text style={styles.buttonText}>Save Ultrasonic</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     padding: 20,
     backgroundColor: "#fffaf2",
   },
   header: {
     fontSize: 28,
     fontWeight: "bold",
-    marginBottom: 30,
+    marginBottom: 25,
     textAlign: "center",
   },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginVertical: 15,
+  },
   input: {
-    width: "100%",
     padding: 14,
     borderWidth: 1,
     borderColor: "#ccc",
@@ -175,7 +220,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     alignItems: "center",
-    marginBottom: 30,
+    marginBottom: 25,
   },
   buttonText: {
     fontSize: 18,

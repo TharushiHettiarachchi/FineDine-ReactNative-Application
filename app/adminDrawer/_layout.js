@@ -68,13 +68,14 @@ export default function Layout() {
             <Drawer.Screen
           name="editTrays"
           options={{
-            drawerLabel: 'Tray Settings',
+            drawerLabel: 'Settings',
             headerTitle: 'Tray Settings',
             drawerIcon: ({ color, size }) => (
               <MaterialIcons name="groups" size={size} color={color} />
             ),
           }}
         />
+  
           <Drawer.Screen
           name="adminLogout"
           options={{

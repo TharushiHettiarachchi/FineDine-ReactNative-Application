@@ -1,5 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, Dimensions, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  Dimensions,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { MotiView } from 'moti';
 import { collection, getDocs } from "firebase/firestore";
 import { ref, onValue } from "firebase/database";
@@ -13,35 +22,33 @@ export default function Dashboard() {
   const [totalUsers, setTotalUsers] = useState(0);
   const [todaysRevenue, setTodaysRevenue] = useState(0);
   const [totalOrders, setTotalOrders] = useState(0);
+  const [hasServed, setHasServed] = useState(false);
 
-  
   const { tray1, tray2, tray3, trayCount, loading } = useTrayListener();
+
+  const emergencyShownRef = useRef(false);
+  const lowBatteryShownRef = useRef(false);
 
  
   useEffect(() => {
     const fetchStats = async () => {
       try {
-      
         const usersSnapshot = await getDocs(collection(db, "user"));
         setTotalUsers(usersSnapshot.size);
 
-      
         const ordersSnapshot = await getDocs(collection(db, "orders"));
         setTotalOrders(ordersSnapshot.size);
 
-   
         let revenue = 0;
         const today = new Date();
+
         ordersSnapshot.forEach(doc => {
           const data = doc.data();
           if (data.orderDate) {
-            let orderDate;
-       
-            if (typeof data.orderDate.toDate === "function") {
-              orderDate = data.orderDate.toDate();
-            } else {
-              orderDate = new Date(data.orderDate);
-            }
+            const orderDate =
+              typeof data.orderDate.toDate === "function"
+                ? data.orderDate.toDate()
+                : new Date(data.orderDate);
 
             if (
               orderDate.getDate() === today.getDate() &&
@@ -52,8 +59,8 @@ export default function Dashboard() {
             }
           }
         });
-        setTodaysRevenue(revenue);
 
+        setTodaysRevenue(revenue);
       } catch (error) {
         console.error("Error fetching dashboard stats:", error);
       }
@@ -62,16 +69,74 @@ export default function Dashboard() {
     fetchStats();
   }, []);
 
- 
+
   useEffect(() => {
     const batteryRef = ref(database, "Battery/Charge");
-    const unsubBattery = onValue(batteryRef, snapshot => {
-      if (snapshot.exists()) setBatteryPercentage(snapshot.val());
+
+    const unsubscribeBattery = onValue(batteryRef, snapshot => {
+      if (snapshot.exists()) {
+        setBatteryPercentage(snapshot.val());
+      }
     });
-    return () => unsubBattery();
+
+    return () => unsubscribeBattery();
   }, []);
 
   
+  useEffect(() => {
+    const servedRef = ref(database, "robot/has_served");
+
+    const unsubscribeServed = onValue(servedRef, snapshot => {
+      if (snapshot.exists()) {
+        setHasServed(snapshot.val());
+      }
+    });
+
+    return () => unsubscribeServed();
+  }, []);
+
+  
+  useEffect(() => {
+    const emergencyRef = ref(database, "robot/emergency");
+
+    const unsubscribeEmergency = onValue(emergencyRef, snapshot => {
+      if (snapshot.exists() && snapshot.val() === true) {
+        if (!emergencyShownRef.current) {
+          emergencyShownRef.current = true;
+
+          Alert.alert(
+            "EMERGENCY ALERT",
+            "Robot emergency detected!\nPlease stop operations immediately.",
+            [{ text: "OK" }],
+            { cancelable: false }
+          );
+        }
+      } else {
+        emergencyShownRef.current = false;
+      }
+    });
+
+    return () => unsubscribeEmergency();
+  }, []);
+
+  
+  useEffect(() => {
+    if (batteryPercentage < 20 && hasServed) {
+      if (!lowBatteryShownRef.current) {
+        lowBatteryShownRef.current = true;
+
+        Alert.alert(
+          "Low Battery Warning",
+          "Robot has low battery.\nPlease serve customers using a human waiter.",
+          [{ text: "OK" }],
+          { cancelable: false }
+        );
+      }
+    } else {
+      lowBatteryShownRef.current = false;
+    }
+  }, [batteryPercentage, hasServed]);
+
   const cardData = [
     { title: 'Registered Users', value: totalUsers, gif: require('../../assets/users.gif') },
     { title: "Today's Revenue", value: `Rs. ${todaysRevenue}.00`, gif: require('../../assets/money.gif') },
@@ -112,9 +177,15 @@ export default function Dashboard() {
   );
 }
 
+
 const styles = StyleSheet.create({
   scrollView: { backgroundColor: '#fff7f0' },
-  container: { flex: 1, padding: 20, alignItems: 'center', paddingBottom: 40 },
+  container: {
+    flex: 1,
+    padding: 20,
+    alignItems: 'center',
+    paddingBottom: 40,
+  },
   card: {
     width: width * 0.9,
     backgroundColor: '#fff1d2',
@@ -134,7 +205,16 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   cardLeft: { flex: 1 },
-  cardTitle: { fontSize: 16, color: '#000000', fontWeight: '600' },
-  cardValue: { fontSize: 24, color: '#000000', fontWeight: 'bold', marginTop: 5 },
+  cardTitle: {
+    fontSize: 16,
+    color: '#000000',
+    fontWeight: '600',
+  },
+  cardValue: {
+    fontSize: 24,
+    color: '#000000',
+    fontWeight: 'bold',
+    marginTop: 5,
+  },
   gif: { width: 50, height: 50, marginLeft: 10 },
 });
